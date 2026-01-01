@@ -193,6 +193,77 @@ app.get('/api/docs', (req, res) => {
   });
 });
 
+// Demo data population endpoint (for demo purposes)
+app.post('/api/populate-demo-mentors', async (req, res) => {
+  try {
+    const demoMentors = require('./data/demoMentors');
+    const User = require('./models/User');
+    const MentorProfile = require('./models/MentorProfile');
+
+    let created = 0;
+    let existing = 0;
+
+    for (const mentorData of demoMentors) {
+      // Check if user already exists
+      let user = await User.findOne({ email: mentorData.email });
+      
+      if (!user) {
+        // Create user
+        user = new User({
+          name: mentorData.name,
+          email: mentorData.email,
+          password: 'demo123456', // Demo password
+          role: 'mentor'
+        });
+        await user.save();
+      }
+
+      // Check if mentor profile already exists
+      let mentorProfile = await MentorProfile.findOne({ userId: user._id });
+      
+      if (!mentorProfile) {
+        // Create mentor profile
+        mentorProfile = new MentorProfile({
+          userId: user._id,
+          title: mentorData.title,
+          company: mentorData.company,
+          bio: mentorData.bio,
+          experience: mentorData.experience,
+          expertise: mentorData.expertise,
+          linkedin: mentorData.linkedin,
+          yearsOfExperience: mentorData.yearsOfExperience,
+          availability: mentorData.availability,
+          isActive: true,
+          isProfileComplete: true,
+          rating: (Math.random() * 2 + 3).toFixed(1),
+          totalSessions: Math.floor(Math.random() * 50) + 10,
+          totalReviews: Math.floor(Math.random() * 30) + 5
+        });
+        await mentorProfile.save();
+        created++;
+      } else {
+        existing++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Demo mentors populated successfully',
+      created,
+      existing,
+      total: demoMentors.length
+    });
+
+  } catch (error) {
+    console.error('Error populating demo mentors:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to populate demo mentors',
+      error: error.message
+    });
+  }
+});
+
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
