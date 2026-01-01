@@ -1,0 +1,9 @@
+
+{
+  "name": "MentorVerse",
+  "description": "MentorVerse: An intelligent platform that uses AI to connect mentees with their ideal mentors based on skills, career goals, and interests.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
