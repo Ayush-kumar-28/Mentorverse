@@ -1,14 +1,22 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { GoogleGenAI } = require('@google/genai');
-
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY environment variable not set');
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
+
+// Check if Gemini API key is available
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+let genAI = null;
+
+if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+  try {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  } catch (error) {
+    console.error('Failed to initialize Gemini AI:', error);
+  }
+} else {
+  console.warn('GEMINI_API_KEY not set or using placeholder value. Chatbot will return fallback responses.');
+}
 
 const messageValidators = [
   body('messages').isArray({ min: 1 }),
@@ -34,6 +42,20 @@ router.post('/', messageValidators, async (req, res) => {
   }
 
   try {
+    // If Gemini AI is not available, return a helpful fallback response
+    if (!genAI) {
+      const fallbackResponses = [
+        "I'm here to help with your mentorship journey! While I'm currently offline, I recommend browsing our available mentors or posting your question in a doubt room where other mentees and mentors can assist you.",
+        "Great question! Although my AI features are temporarily unavailable, you can get immediate help by connecting with one of our expert mentors or joining an active doubt room discussion.",
+        "I'd love to help you with that! For now, I recommend booking a session with one of our mentors who can provide personalized guidance on your topic.",
+        "That's an interesting question! While I'm currently unable to provide AI-powered responses, our community of mentors and mentees in the doubt rooms are always ready to help.",
+        "Thanks for reaching out! Although my AI capabilities are temporarily offline, you can get expert advice by browsing our mentor profiles and booking a session that fits your needs."
+      ];
+      
+      const randomResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+      return res.json({ reply: randomResponse });
+    }
+
     const rawMessages = req.body.messages.slice(-12);
     const conversation = rawMessages.map(({ role, text }) => {
       const speaker = sanitizeRole(role) === 'user' ? 'Mentee' : 'MentorVerse AI';
@@ -42,12 +64,10 @@ router.post('/', messageValidators, async (req, res) => {
 
     const prompt = `${siteContext}\n\nConversation so far:\n${conversation}\n\nMentorVerse AI:`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
-
-    const reply = typeof response.text === 'string' ? response.text.trim() : '';
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const reply = response.text().trim();
 
     if (!reply) {
       return res.status(502).json({ message: 'Empty response from Gemini service' });
@@ -56,7 +76,10 @@ router.post('/', messageValidators, async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error('Chatbot response error:', error);
-    res.status(500).json({ message: 'Failed to generate chatbot response' });
+    
+    // Return a helpful fallback response instead of an error
+    const fallbackResponse = "I'm experiencing some technical difficulties right now. For immediate assistance, I recommend connecting with one of our mentors or posting your question in a doubt room where the community can help you!";
+    res.json({ reply: fallbackResponse });
   }
 });
 
