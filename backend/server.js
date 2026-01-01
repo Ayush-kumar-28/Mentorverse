@@ -47,18 +47,22 @@ const initializeServer = async () => {
     });
     app.use('/api/', limiter);
 
-    // Middleware
+    // Middleware - Temporary permissive CORS for debugging
     const corsOptions = {
-      origin: process.env.NODE_ENV === 'production' 
-        ? process.env.FRONTEND_URL || 'https://your-domain.com'
-        : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: true, // Allow all origins temporarily for debugging
       credentials: true,
-      optionsSuccessStatus: 200
+      optionsSuccessStatus: 200,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+      exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
     };
     
     app.use(cors(corsOptions));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    // Handle preflight requests for all routes
+    app.options('*', cors(corsOptions));
 
     // Main application routes (mentee-focused)
     app.use('/api/auth', require('./routes/auth'));
@@ -81,16 +85,78 @@ const initializeServer = async () => {
     app.use('/api/mentee', require('./routes/mentee/index'));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check database connections
+    const mongoose = require('mongoose');
+    const { getMentorConnection } = require('./config/mentorDatabase');
+    const { getMenteeConnection } = require('./config/menteeDatabase');
+
+    const mainDbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+    
+    let mentorDbStatus = 'Disconnected';
+    let menteeDbStatus = 'Disconnected';
+    
+    try {
+      const mentorConn = getMentorConnection();
+      mentorDbStatus = mentorConn.readyState === 1 ? 'Connected' : 'Disconnected';
+    } catch (e) {
+      mentorDbStatus = 'Error';
+    }
+    
+    try {
+      const menteeConn = getMenteeConnection();
+      menteeDbStatus = menteeConn.readyState === 1 ? 'Connected' : 'Disconnected';
+    } catch (e) {
+      menteeDbStatus = 'Error';
+    }
+
+    const allConnected = mainDbStatus === 'Connected' && 
+                        mentorDbStatus === 'Connected' && 
+                        menteeDbStatus === 'Connected';
+
+    res.status(allConnected ? 200 : 503).json({
+      success: allConnected,
+      message: allConnected ? 'MentorVerse API is healthy' : 'Some database connections are down',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      databases: {
+        main: mainDbStatus,
+        mentor: mentorDbStatus,
+        mentee: menteeDbStatus
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Health check failed',
+      timestamp: new Date().toISOString(),
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Simple test endpoint
+app.get('/api/test', (req, res) => {
   res.json({
     success: true,
-    message: 'MentorVerse API is healthy',
+    message: 'MentorVerse API is working!',
     timestamp: new Date().toISOString(),
-    databases: {
-      main: 'Connected',
-      mentor: 'Connected',
-      mentee: 'Connected'
-    }
+    environment: process.env.NODE_ENV,
+    cors: 'CORS is configured for Vercel deployment',
+    origin: req.headers.origin || 'No origin header',
+    userAgent: req.headers['user-agent'] || 'No user agent'
+  });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS test successful',
+    origin: req.headers.origin,
+    method: req.method,
+    headers: req.headers
   });
 });
 

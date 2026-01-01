@@ -9,7 +9,8 @@ const validateEnvironment = () => {
     'MENTEE_MONGODB_URI',
     'PORT',
     'NODE_ENV',
-    'JWT_EXPIRE'
+    'JWT_EXPIRE',
+    'FRONTEND_URL'
   ];
 
   const missing = [];
@@ -24,13 +25,33 @@ const validateEnvironment = () => {
 
   // Check optional variables and provide defaults
   if (!process.env.MENTOR_MONGODB_URI) {
-    process.env.MENTOR_MONGODB_URI = 'mongodb://localhost:27017/mentorverse_mentors';
-    warnings.push('MENTOR_MONGODB_URI not set, using default: mongodb://localhost:27017/mentorverse_mentors');
+    if (process.env.NODE_ENV === 'production') {
+      // In production, derive from main URI if not provided
+      if (process.env.MONGODB_URI) {
+        process.env.MENTOR_MONGODB_URI = process.env.MONGODB_URI.replace('/mentorverse_main', '/mentorverse_mentors');
+        warnings.push('MENTOR_MONGODB_URI not set, derived from MONGODB_URI');
+      } else {
+        missing.push('MENTOR_MONGODB_URI');
+      }
+    } else {
+      process.env.MENTOR_MONGODB_URI = 'mongodb://localhost:27017/mentorverse_mentors';
+      warnings.push('MENTOR_MONGODB_URI not set, using default: mongodb://localhost:27017/mentorverse_mentors');
+    }
   }
 
   if (!process.env.MENTEE_MONGODB_URI) {
-    process.env.MENTEE_MONGODB_URI = 'mongodb://localhost:27017/mentorverse_mentees';
-    warnings.push('MENTEE_MONGODB_URI not set, using default: mongodb://localhost:27017/mentorverse_mentees');
+    if (process.env.NODE_ENV === 'production') {
+      // In production, derive from main URI if not provided
+      if (process.env.MONGODB_URI) {
+        process.env.MENTEE_MONGODB_URI = process.env.MONGODB_URI.replace('/mentorverse_main', '/mentorverse_mentees');
+        warnings.push('MENTEE_MONGODB_URI not set, derived from MONGODB_URI');
+      } else {
+        missing.push('MENTEE_MONGODB_URI');
+      }
+    } else {
+      process.env.MENTEE_MONGODB_URI = 'mongodb://localhost:27017/mentorverse_mentees';
+      warnings.push('MENTEE_MONGODB_URI not set, using default: mongodb://localhost:27017/mentorverse_mentees');
+    }
   }
 
   if (!process.env.PORT) {
@@ -61,7 +82,15 @@ const validateEnvironment = () => {
     console.warn('WARNING: JWT_SECRET should be at least 32 characters long for security');
   }
 
+  // Validate MongoDB URIs format
+  const mongoUriPattern = /^mongodb(\+srv)?:\/\/.+/;
+  if (!mongoUriPattern.test(process.env.MONGODB_URI)) {
+    throw new Error('MONGODB_URI format is invalid');
+  }
+
   console.log('Environment validation passed');
+  console.log(`Running in ${process.env.NODE_ENV} mode`);
+  console.log(`Server will start on port ${process.env.PORT}`);
 };
 
 module.exports = validateEnvironment;
