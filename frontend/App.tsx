@@ -159,32 +159,47 @@ function App() {
   const [mentorDashboardView, setMentorDashboardView] = useState<MentorDashboardView>('sessions');
 
   const activateSession = useCallback(async (user: { id: string; name: string; email: string; role: UserRole; avatar?: string }, skipProfileSetup: boolean = false) => {
+    console.log('Activating session for user:', user);
+    
     localStorage.setItem('authUser', JSON.stringify(user));
     setUserData(user);
     setIsAuthenticated(true);
     setUserRole(user.role);
     
-    // For mentors, skip profile setup and go directly to dashboard
+    // Navigate immediately to prevent freezing
     if (user.role === 'mentor') {
-      try {
-        // Try to load existing mentor profile (will create default if doesn't exist)
-        const existingProfile = await mentorProfileService.getProfile();
-        setMentorProfile(existingProfile);
-      } catch (error) {
-        console.error('Error loading mentor profile:', error);
-        // Continue to dashboard even if profile loading fails
-      }
-      
-      // Always go to mentor dashboard (skip profile setup)
       setCurrentPage('mentor-dashboard');
+      setMentorDashboardView('sessions'); // Set a default view
+      
+      // Create a basic mentor profile immediately
+      const basicProfile = createDefaultMentorProfile();
+      basicProfile.id = user.id;
+      basicProfile.name = user.name;
+      basicProfile.email = user.email;
+      basicProfile.role = 'mentor';
+      setMentorProfile(basicProfile);
+      
+      // Try to load real profile in background (non-blocking)
+      setTimeout(async () => {
+        try {
+          console.log('Loading mentor profile in background...');
+          const existingProfile = await mentorProfileService.getProfile();
+          setMentorProfile(existingProfile);
+          console.log('Mentor profile loaded successfully');
+        } catch (error) {
+          console.warn('Could not load mentor profile, using default:', error);
+          // Keep the basic profile we already set
+        }
+      }, 500); // Delay to ensure navigation completes first
     } else {
       setCurrentPage('dashboard');
+      setDashboardView('selection');
     }
     
-    setDashboardView('selection');
-    setMentorDashboardView('selection');
     setAuthRole(null);
     setAuthPage('login');
+    
+    console.log('Session activation completed');
   }, []);
 
   useEffect(() => {

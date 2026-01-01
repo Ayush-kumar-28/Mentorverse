@@ -2,7 +2,41 @@
 
 import type { BookedSession, ChatMessage, MatchmakingProfile, MenteeProfile, Mentor } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Multiple fallback options for API URL
+const getApiBaseUrl = () => {
+  // Try different environment variable combinations
+  const options = [
+    import.meta.env.VITE_API_URL,
+    import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}/api` : null,
+    'https://mentorverse-backend-tq0o.onrender.com/api', // Hardcoded fallback
+    'http://localhost:5000/api' // Local development fallback
+  ].filter(Boolean);
+  
+  for (const url of options) {
+    if (url) {
+      // Ensure URL ends with /api if it doesn't already
+      const finalUrl = url.includes('/api') ? url : `${url}/api`;
+      console.log('Selected API URL:', finalUrl);
+      return finalUrl;
+    }
+  }
+  
+  // Ultimate fallback
+  const fallback = 'https://mentorverse-backend-tq0o.onrender.com/api';
+  console.warn('Using ultimate fallback API URL:', fallback);
+  return fallback;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Debug logging
+console.log('=== API Configuration Debug ===');
+console.log('Final API_BASE_URL:', API_BASE_URL);
+console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+console.log('NODE_ENV:', import.meta.env.NODE_ENV);
+console.log('MODE:', import.meta.env.MODE);
+console.log('================================');
 
 interface AuthResponse {
   token: string;
@@ -175,15 +209,23 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log('Making API request to:', fullUrl);
+    console.log('Method:', options.method || 'GET');
+
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
     });
+
+    console.log('Response status:', response.status);
+    console.log('Response URL:', response.url);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
         message: 'An error occurred',
       }));
+      console.error('API Error:', error);
       throw new Error(error.message || `HTTP error! status: ${response.status}`);
     }
 

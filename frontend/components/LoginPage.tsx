@@ -23,7 +23,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ role, onLogin, onSwitchToS
       setError('');
       setIsLoading(true);
       try {
-        const response = await apiService.login({ email: email.trim().toLowerCase(), password: password.trim() });
+        console.log('Starting login process...');
+        
+        // Add timeout to prevent hanging
+        const loginPromise = apiService.login({ 
+          email: email.trim().toLowerCase(), 
+          password: password.trim() 
+        });
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Login timeout - please try again')), 30000)
+        );
+        
+        const response = await Promise.race([loginPromise, timeoutPromise]) as any;
+        console.log('Login response received:', response);
 
         // Check if the user's role matches the selected role
         if (response.user.role !== role) {
@@ -33,8 +46,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ role, onLogin, onSwitchToS
           return;
         }
 
+        console.log('Calling onLogin...');
         await onLogin(response.user);
+        console.log('Login process completed');
       } catch (err) {
+        console.error('Login error:', err);
         setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
       } finally {
         setIsLoading(false);
