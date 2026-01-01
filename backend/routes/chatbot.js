@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
 
@@ -110,8 +110,14 @@ router.post('/', messageValidators, async (req, res) => {
     const prompt = `${siteContext}\n\nConversation so far:\n${conversation}\n\nMentorVerse AI:`;
     console.log('🤖 Chatbot: Sending request to Gemini API...');
 
-    // Use the standard gemini-pro model
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Use a model that should be available with pro subscription
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      }
+    });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const reply = response.text().trim();
