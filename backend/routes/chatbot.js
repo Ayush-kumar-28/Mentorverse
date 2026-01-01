@@ -86,7 +86,7 @@ router.post('/', messageValidators, async (req, res) => {
     console.log('🤖 Chatbot: Sending request to Gemini API...');
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-pro',
       generationConfig: {
         temperature: 0.7,
         topK: 40,
