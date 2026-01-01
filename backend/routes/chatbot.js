@@ -17,6 +17,15 @@ if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
   try {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     console.log('✅ Gemini AI initialized successfully');
+    
+    // Test the API key by trying to list models
+    genAI.listModels().then(models => {
+      console.log('✅ API key is working, available models:', models.length);
+      console.log('First few models:', models.slice(0, 3).map(m => m.name));
+    }).catch(error => {
+      console.error('❌ API key test failed:', error.message);
+    });
+    
   } catch (error) {
     console.error('❌ Failed to initialize Gemini AI:', error);
   }
@@ -43,14 +52,30 @@ When helpful, include 2-3 trusted learning resources with direct video links (e.
 Be encouraging, concise, and offer actionable tips. Do not invent site features or external offers. Always respond as MentorVerse AI.`;
 
 // Test endpoint to check Gemini API status
-router.get('/status', (req, res) => {
-  res.json({
-    geminiInitialized: !!genAI,
-    apiKeyPresent: !!GEMINI_API_KEY,
-    apiKeyLength: GEMINI_API_KEY ? GEMINI_API_KEY.length : 0,
-    apiKeyFormat: GEMINI_API_KEY ? GEMINI_API_KEY.startsWith('AIza') : false,
-    timestamp: new Date().toISOString()
-  });
+router.get('/status', async (req, res) => {
+  try {
+    const status = {
+      geminiInitialized: !!genAI,
+      apiKeyPresent: !!GEMINI_API_KEY,
+      apiKeyLength: GEMINI_API_KEY ? GEMINI_API_KEY.length : 0,
+      apiKeyFormat: GEMINI_API_KEY ? GEMINI_API_KEY.startsWith('AIza') : false,
+      timestamp: new Date().toISOString()
+    };
+
+    // Try to list models if genAI is available
+    if (genAI) {
+      try {
+        const models = await genAI.listModels();
+        status.availableModels = models.map(model => model.name);
+      } catch (error) {
+        status.modelListError = error.message;
+      }
+    }
+
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.post('/', messageValidators, async (req, res) => {
@@ -85,33 +110,8 @@ router.post('/', messageValidators, async (req, res) => {
     const prompt = `${siteContext}\n\nConversation so far:\n${conversation}\n\nMentorVerse AI:`;
     console.log('🤖 Chatbot: Sending request to Gemini API...');
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-pro',
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024,
-      },
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-      ],
-    });
+    // Use the standard gemini-pro model
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const reply = response.text().trim();
