@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 
 const router = express.Router();
 
@@ -8,15 +8,22 @@ const router = express.Router();
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 let genAI = null;
 
+console.log('=== Gemini AI Initialization ===');
+console.log('API Key present:', !!GEMINI_API_KEY);
+console.log('API Key length:', GEMINI_API_KEY ? GEMINI_API_KEY.length : 0);
+console.log('API Key starts with AIza:', GEMINI_API_KEY ? GEMINI_API_KEY.startsWith('AIza') : false);
+
 if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
   try {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    console.log('✅ Gemini AI initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize Gemini AI:', error);
+    console.error('❌ Failed to initialize Gemini AI:', error);
   }
 } else {
-  console.warn('GEMINI_API_KEY not set or using placeholder value. Chatbot will return fallback responses.');
+  console.warn('⚠️ GEMINI_API_KEY not set or using placeholder value. Chatbot will return fallback responses.');
 }
+console.log('=================================')
 
 const messageValidators = [
   body('messages').isArray({ min: 1 }),
@@ -35,6 +42,17 @@ If mentors are unavailable, act as the fallback guide: answer mentee questions, 
 When helpful, include 2-3 trusted learning resources with direct video links (e.g., reputable YouTube playlists, official course recordings). Provide a short description for every link.
 Be encouraging, concise, and offer actionable tips. Do not invent site features or external offers. Always respond as MentorVerse AI.`;
 
+// Test endpoint to check Gemini API status
+router.get('/status', (req, res) => {
+  res.json({
+    geminiInitialized: !!genAI,
+    apiKeyPresent: !!GEMINI_API_KEY,
+    apiKeyLength: GEMINI_API_KEY ? GEMINI_API_KEY.length : 0,
+    apiKeyFormat: GEMINI_API_KEY ? GEMINI_API_KEY.startsWith('AIza') : false,
+    timestamp: new Date().toISOString()
+  });
+});
+
 router.post('/', messageValidators, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -44,6 +62,7 @@ router.post('/', messageValidators, async (req, res) => {
   try {
     // If Gemini AI is not available, return a helpful fallback response
     if (!genAI) {
+      console.log('🤖 Chatbot: Using fallback response (no genAI instance)');
       const fallbackResponses = [
         "I'm here to help with your mentorship journey! While I'm currently offline, I recommend browsing our available mentors or posting your question in a doubt room where other mentees and mentors can assist you.",
         "Great question! Although my AI features are temporarily unavailable, you can get immediate help by connecting with one of our expert mentors or joining an active doubt room discussion.",
@@ -56,6 +75,7 @@ router.post('/', messageValidators, async (req, res) => {
       return res.json({ reply: randomResponse });
     }
 
+    console.log('🤖 Chatbot: Processing AI request...');
     const rawMessages = req.body.messages.slice(-12);
     const conversation = rawMessages.map(({ role, text }) => {
       const speaker = sanitizeRole(role) === 'user' ? 'Mentee' : 'MentorVerse AI';
@@ -63,22 +83,59 @@ router.post('/', messageValidators, async (req, res) => {
     }).join('\n');
 
     const prompt = `${siteContext}\n\nConversation so far:\n${conversation}\n\nMentorVerse AI:`;
+    console.log('🤖 Chatbot: Sending request to Gemini API...');
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      },
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+      ],
+    });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const reply = response.text().trim();
 
+    console.log('🤖 Chatbot: Received response from Gemini API, length:', reply.length);
+
     if (!reply) {
+      console.log('🤖 Chatbot: Empty response from Gemini service');
       return res.status(502).json({ message: 'Empty response from Gemini service' });
     }
 
+    console.log('🤖 Chatbot: Sending successful AI response');
     res.json({ reply });
   } catch (error) {
-    console.error('Chatbot response error:', error);
+    console.error('🤖 Chatbot response error:', error);
+    console.error('🤖 Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n')[0] // Just the first line of stack
+    });
     
     // Return a helpful fallback response instead of an error
     const fallbackResponse = "I'm experiencing some technical difficulties right now. For immediate assistance, I recommend connecting with one of our mentors or posting your question in a doubt room where the community can help you!";
+    console.log('🤖 Chatbot: Returning fallback response due to error');
     res.json({ reply: fallbackResponse });
   }
 });
