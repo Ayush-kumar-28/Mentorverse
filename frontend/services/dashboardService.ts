@@ -48,7 +48,7 @@ export interface DashboardResponse<T> {
 }
 
 class DashboardService {
-  private baseUrl = '/api/dashboard';
+  private baseUrl = '/dashboard';
 
   /**
    * Get dashboard statistics

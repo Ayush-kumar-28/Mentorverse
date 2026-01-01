@@ -35,7 +35,7 @@ export interface UpdateMentorProfileData extends Partial<CreateMentorProfileData
 }
 
 class MentorProfileService {
-  private baseUrl = '/api/mentor/profile';
+  private baseUrl = '/mentor/profile';
 
   /**
    * Check if mentor profile exists and is complete

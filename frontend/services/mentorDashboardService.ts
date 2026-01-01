@@ -40,7 +40,7 @@ export interface MentorDashboardResponse<T> {
 }
 
 class MentorDashboardService {
-  private baseUrl = '/api/mentor/dashboard';
+  private baseUrl = '/mentor/dashboard';
 
   /**
    * Get mentor dashboard statistics

@@ -52,7 +52,7 @@ export interface MentorDetailsResponse {
 }
 
 class MentorsService {
-  private baseUrl = '/api/mentors';
+  private baseUrl = '/mentors';
 
   /**
    * Get all mentors with pagination and filtering
