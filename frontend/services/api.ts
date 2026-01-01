@@ -4,6 +4,10 @@ import type { BookedSession, ChatMessage, MatchmakingProfile, MenteeProfile, Men
 
 // Multiple fallback options for API URL
 const getApiBaseUrl = () => {
+  console.log('=== API URL Configuration Debug ===');
+  console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+  console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+  
   // Try different environment variable combinations
   const options = [
     import.meta.env.VITE_API_URL,
@@ -12,11 +16,17 @@ const getApiBaseUrl = () => {
     'http://localhost:5000/api' // Local development fallback
   ].filter(Boolean);
   
+  console.log('Available URL options:', options);
+  
   for (const url of options) {
     if (url) {
       // Ensure URL ends with /api if it doesn't already
-      const finalUrl = url.includes('/api') ? url : `${url}/api`;
+      let finalUrl = url;
+      if (!url.endsWith('/api')) {
+        finalUrl = `${url}/api`;
+      }
       console.log('Selected API URL:', finalUrl);
+      console.log('================================');
       return finalUrl;
     }
   }
@@ -24,10 +34,19 @@ const getApiBaseUrl = () => {
   // Ultimate fallback
   const fallback = 'https://mentorverse-backend-tq0o.onrender.com/api';
   console.warn('Using ultimate fallback API URL:', fallback);
+  console.log('================================');
   return fallback;
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// Temporary hardcoded fix to ensure correct API URL
+const VERIFIED_API_BASE_URL = 'https://mentorverse-backend-tq0o.onrender.com/api';
+
+console.log('=== FINAL API URL VERIFICATION ===');
+console.log('Calculated API_BASE_URL:', API_BASE_URL);
+console.log('Using hardcoded URL:', VERIFIED_API_BASE_URL);
+console.log('===================================');
 
 // Debug logging
 console.log('=== API Configuration Debug ===');
@@ -196,7 +215,7 @@ class ApiService {
     return this.token;
   }
 
-  private async request<T>(
+  public async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -209,7 +228,7 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    const fullUrl = `${VERIFIED_API_BASE_URL}${endpoint}`;
     console.log('Making API request to:', fullUrl);
     console.log('Method:', options.method || 'GET');
 

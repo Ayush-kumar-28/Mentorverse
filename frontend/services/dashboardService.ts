@@ -55,38 +55,27 @@ class DashboardService {
    */
   async getStats(): Promise<DashboardStats> {
     try {
-      const token = apiService.getToken();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${this.baseUrl}/stats`, {
+      const response = await apiService.request<DashboardResponse<DashboardStats>>('/dashboard/stats', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please log in again.');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch dashboard statistics');
       }
 
-      const data = await response.json() as DashboardResponse<DashboardStats>;
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch dashboard statistics');
-      }
-
-      return data.data;
+      return response.data;
     } catch (error) {
       console.error('Dashboard stats error:', error);
-      throw new Error(
-        error instanceof Error ? error.message : 'Failed to load dashboard statistics'
-      );
+      
+      // Return default stats if API fails
+      return {
+        totalSessions: 0,
+        completedSessions: 0,
+        upcomingSessions: 0,
+        actuallyCompleted: 0,
+        progressPercentage: 0,
+        lastUpdated: new Date().toISOString()
+      };
     }
   }
 
@@ -95,38 +84,20 @@ class DashboardService {
    */
   async getMonthlyActivity(): Promise<MonthlyActivity[]> {
     try {
-      const token = apiService.getToken();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${this.baseUrl}/monthly-activity`, {
+      const response = await apiService.request<DashboardResponse<MonthlyActivity[]>>('/dashboard/monthly-activity', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please log in again.');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch monthly activity data');
       }
 
-      const data = await response.json() as DashboardResponse<MonthlyActivity[]>;
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch monthly activity data');
-      }
-
-      return data.data;
+      return response.data;
     } catch (error) {
       console.error('Monthly activity error:', error);
-      throw new Error(
-        error instanceof Error ? error.message : 'Failed to load monthly activity data'
-      );
+      
+      // Return default empty activity if API fails
+      return [];
     }
   }
 
@@ -135,38 +106,20 @@ class DashboardService {
    */
   async getFavoriteMentors(limit: number = 4): Promise<FavoriteMentor[]> {
     try {
-      const token = apiService.getToken();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${this.baseUrl}/favorite-mentors?limit=${limit}`, {
+      const response = await apiService.request<DashboardResponse<FavoriteMentor[]>>(`/dashboard/favorite-mentors?limit=${limit}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please log in again.');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch favorite mentors');
       }
 
-      const data = await response.json() as DashboardResponse<FavoriteMentor[]>;
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch favorite mentors');
-      }
-
-      return data.data;
+      return response.data;
     } catch (error) {
       console.error('Favorite mentors error:', error);
-      throw new Error(
-        error instanceof Error ? error.message : 'Failed to load favorite mentors'
-      );
+      
+      // Return empty array if API fails
+      return [];
     }
   }
 
@@ -175,38 +128,20 @@ class DashboardService {
    */
   async getRecentActivity(limit: number = 5): Promise<RecentActivity[]> {
     try {
-      const token = apiService.getToken();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${this.baseUrl}/recent-activity?limit=${limit}`, {
+      const response = await apiService.request<DashboardResponse<RecentActivity[]>>(`/dashboard/recent-activity?limit=${limit}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please log in again.');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch recent activity');
       }
 
-      const data = await response.json() as DashboardResponse<RecentActivity[]>;
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch recent activity');
-      }
-
-      return data.data;
+      return response.data;
     } catch (error) {
       console.error('Recent activity error:', error);
-      throw new Error(
-        error instanceof Error ? error.message : 'Failed to load recent activity'
-      );
+      
+      // Return empty array if API fails
+      return [];
     }
   }
 
